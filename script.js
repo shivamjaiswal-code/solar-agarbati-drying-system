@@ -1,18 +1,28 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import {
-  getDatabase, ref, onValue, query, limitToLast
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  onValue,
+  query,
+  limitToLast
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
+  apiKey: "AIzaSyDZOYKmtqll6xQMNyNZUBH2Y0pvYF_xH98",
   authDomain: "solar-agarbatti-monitor.firebaseapp.com",
   databaseURL: "https://solar-agarbatti-monitor-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "solar-agarbatti-monitor",
-  storageBucket: "PASTE_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+  storageBucket: "solar-agarbatti-monitor.firebasestorage.app",
+  messagingSenderId: "937826744914",
+  appId: "1:937826744914:web:4d7367de118c94dfcfbd8b"
 };
 
 // ESP32 and Firebase paths
@@ -23,6 +33,8 @@ const HISTORY_PATH = `devices/${DEVICE_ID}/history`;
 const $ = id => document.getElementById(id);
 
 let database;
+let auth;
+let currentUser = null;
 let chart;
 let demoMode = false;
 let currentUnsubscribe = null;
@@ -36,6 +48,7 @@ function toBoolean(value) {
 
   if (typeof value === "string") {
     const v = value.toLowerCase().trim();
+
     if (["on", "true", "1", "yes"].includes(v)) return true;
     if (["off", "false", "0", "no"].includes(v)) return false;
   }
@@ -49,6 +62,7 @@ function getValue(data, keys) {
       return data[key];
     }
   }
+
   return null;
 }
 
@@ -60,10 +74,10 @@ function normalize(data, key = "") {
 
   return {
     key,
-    temperature: t !== null && Number.isFinite(Number(t))
-      ? Number(t) : null,
-    humidity: h !== null && Number.isFinite(Number(h))
-      ? Number(h) : null,
+    temperature:
+      t !== null && Number.isFinite(Number(t)) ? Number(t) : null,
+    humidity:
+      h !== null && Number.isFinite(Number(h)) ? Number(h) : null,
     ldr: getValue(data, ["ldr", "ldrValue", "light"]),
     fan: toBoolean(getValue(data, ["fan", "fanState"])),
     lamp: toBoolean(getValue(data, ["lamp", "lampState"])),
@@ -73,7 +87,9 @@ function normalize(data, key = "") {
 }
 
 function timeText(value) {
-  if (value === null || value === undefined) return "Time unavailable";
+  if (value === null || value === undefined) {
+    return "Time unavailable";
+  }
 
   let n = Number(value);
   let date;
@@ -93,6 +109,7 @@ function timeText(value) {
 function setConnection(status, message) {
   const el = $("connection");
   el.className = "connection";
+
   if (status === "connected") el.classList.add("connected");
   if (status === "error") el.classList.add("error");
 
@@ -107,10 +124,8 @@ function showNotice(message, type = "") {
 }
 
 function showToast(message) {
-  // Simple browser notification fallback
-  let toast = $("notice");
-  toast.textContent = message;
-  toast.className = "notice warning";
+  $("notice").textContent = message;
+  $("notice").className = "notice warning";
   clearTimeout(toastTimer);
 }
 
@@ -122,10 +137,12 @@ function renderCurrent(r) {
   if (!r) {
     $("lastUpdate").textContent = "Waiting for ESP32...";
     $("sensorHealth").textContent = "Waiting";
+
     showNotice(
       `No current record yet. Waiting for ESP32 at /${CURRENT_PATH}.`,
       "warning"
     );
+
     return;
   }
 
@@ -148,15 +165,19 @@ function renderCurrent(r) {
       : "Latest sensor reading";
 
   $("tempHealth").textContent =
-    r.temperature === null ? "Unknown"
-      : r.temperature >= 60 ? "HIGH" : "Normal";
+    r.temperature === null
+      ? "Unknown"
+      : r.temperature >= 60
+        ? "HIGH"
+        : "Normal";
 
   $("tempHealth").className =
     r.temperature !== null && r.temperature >= 60 ? "bad" : "good";
 
   $("sensorHealth").textContent =
     r.temperature !== null && r.humidity !== null
-      ? "Receiving" : "Partial data";
+      ? "Receiving"
+      : "Partial data";
 
   $("sensorHealth").className =
     r.temperature !== null && r.humidity !== null ? "good" : "bad";
@@ -187,6 +208,7 @@ function timestampMs(value) {
   if (value === null || value === undefined) return 0;
 
   const n = Number(value);
+
   if (Number.isFinite(n) && String(value).trim() !== "") {
     return n < 1e12 ? n * 1000 : n;
   }
@@ -196,12 +218,12 @@ function timestampMs(value) {
 }
 
 function renderHistory(records) {
-  // Latest records first in the table
   records.sort(
     (a, b) => timestampMs(b.timestamp) - timestampMs(a.timestamp)
   );
 
   const visible = records.slice(0, 100);
+
   $("recordCount").textContent = `${records.length} records`;
   $("recordSummary").textContent = `${visible.length} records loaded`;
 
@@ -229,15 +251,17 @@ function renderHistory(records) {
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, ch => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;",
-    '"': "&quot;", "'": "&#39;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
   })[ch]);
 }
 
 function renderChart(records) {
   if (!window.Chart) return;
 
-  // Plot up to the latest 50 records in chronological order
   const data = records.slice(0, 50).sort(
     (a, b) => timestampMs(a.timestamp) - timestampMs(b.timestamp)
   );
@@ -249,12 +273,15 @@ function renderChart(records) {
     data: {
       labels: data.map(r => {
         const ms = timestampMs(r.timestamp);
+
         return ms
           ? new Date(ms).toLocaleTimeString([], {
-              hour: "2-digit", minute: "2-digit"
+              hour: "2-digit",
+              minute: "2-digit"
             })
           : "—";
       }),
+
       datasets: [
         {
           label: "Temperature (°C)",
@@ -278,6 +305,7 @@ function renderChart(records) {
         }
       ]
     },
+
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -296,32 +324,38 @@ function renderChart(records) {
 function stopListeners() {
   if (currentUnsubscribe) currentUnsubscribe();
   if (historyUnsubscribe) historyUnsubscribe();
+
   currentUnsubscribe = null;
   historyUnsubscribe = null;
 }
 
 function connectFirebase() {
+  // Database listeners start only after the user has logged in.
+  if (!currentUser) return;
+
+  stopListeners();
+
   if (
-    firebaseConfig.apiKey === "PASTE_YOUR_API_KEY" ||
-    firebaseConfig.appId === "PASTE_YOUR_APP_ID" ||
-    firebaseConfig.messagingSenderId === "PASTE_YOUR_MESSAGING_SENDER_ID"
+    !firebaseConfig.apiKey ||
+    !firebaseConfig.appId ||
+    !firebaseConfig.messagingSenderId
   ) {
     setConnection("error", "Web config required");
+
     showNotice(
-      "Add the Firebase Web App config from Project Overview → Add app → Web. The database URL is already filled in.",
+      "Firebase Web App config is missing. Check firebaseConfig in script.js.",
       "warning"
     );
+
     return;
   }
 
   try {
-    const app = initializeApp(firebaseConfig);
-    database = getDatabase(app);
-
     setConnection("waiting", "Connecting...");
 
     currentUnsubscribe = onValue(
       ref(database, CURRENT_PATH),
+
       snapshot => {
         setConnection("connected", "Firebase connected");
 
@@ -332,11 +366,14 @@ function connectFirebase() {
 
         renderCurrent(normalize(snapshot.val()));
       },
+
       error => {
         console.error("Current data read failed:", error);
+
         setConnection("error", "Read denied");
+
         showNotice(
-          `Firebase current data error: ${error.message}. Check authentication and database rules.`,
+          `Firebase current data error: ${error.message}. Check Authentication and database rules.`,
           "warning"
         );
       }
@@ -349,6 +386,7 @@ function connectFirebase() {
 
     historyUnsubscribe = onValue(
       historyRef,
+
       snapshot => {
         const records = [];
 
@@ -361,8 +399,10 @@ function connectFirebase() {
 
         renderHistory(records);
       },
+
       error => {
         console.error("History read failed:", error);
+
         showToast(
           "History could not be read. Check Firebase rules and history path."
         );
@@ -370,13 +410,100 @@ function connectFirebase() {
     );
   } catch (error) {
     console.error(error);
+
     setConnection("error", "Configuration error");
     showNotice(error.message, "warning");
   }
 }
 
-// Demo mode for preview only. These readings are not from the hardware.
+function showLoginError(message) {
+  const errorEl = $("loginError");
+  if (errorEl) errorEl.textContent = message;
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+
+  const email = $("loginEmail").value.trim();
+  const password = $("loginPassword").value;
+  const button = $("loginButton");
+
+  showLoginError("");
+  button.disabled = true;
+  button.textContent = "Signing in...";
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged will show the dashboard.
+  } catch (error) {
+    console.error("Sign-in failed:", error);
+
+    const messages = {
+      "auth/invalid-email": "Please enter a valid email address.",
+      "auth/invalid-credential": "Email or password is incorrect.",
+      "auth/user-not-found": "No account found for this email.",
+      "auth/wrong-password": "Email or password is incorrect.",
+      "auth/too-many-requests": "Too many attempts. Please wait and try again.",
+      "auth/network-request-failed": "Network error. Check your internet connection."
+    };
+
+    showLoginError(
+      messages[error.code] ||
+      "Sign-in failed. Check your email and password, then try again."
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = "Sign In";
+  }
+}
+
+async function handleLogout() {
+  try {
+    demoMode = false;
+    stopListeners();
+    await signOut(auth);
+  } catch (error) {
+    console.error("Sign-out failed:", error);
+    showToast("Could not sign out. Please try again.");
+  }
+}
+
+function handleAuthState(user) {
+  currentUser = user;
+
+  const loginScreen = $("loginScreen");
+  const appShell = $("appShell");
+
+  if (user) {
+    loginScreen.hidden = true;
+    loginScreen.style.display = "none";
+
+    appShell.hidden = false;
+    appShell.style.display = "";
+
+    $("demoButton").textContent = "Enable Demo";
+    demoMode = false;
+
+    connectFirebase();
+  } else {
+    stopListeners();
+    demoMode = false;
+
+    loginScreen.hidden = false;
+    loginScreen.style.display = "";
+
+    appShell.hidden = true;
+    appShell.style.display = "none";
+
+    showLoginError("");
+    $("loginPassword").value = "";
+  }
+}
+
+// Demo mode uses simulated data only, not real hardware readings.
 function toggleDemo() {
+  if (!currentUser) return;
+
   demoMode = !demoMode;
   stopListeners();
 
@@ -387,13 +514,16 @@ function toggleDemo() {
   }
 
   $("demoButton").textContent = "Exit Demo";
+
   setConnection("waiting", "DEMO MODE");
+
   showNotice(
     "DEMO MODE — simulated readings only; not real ESP32 data.",
     "warning"
   );
 
   const now = Date.now();
+
   renderCurrent(normalize({
     temperature: 42.5,
     humidity: 38.2,
@@ -419,7 +549,13 @@ function toggleDemo() {
   renderHistory(samples);
 }
 
-$("demoButton").addEventListener("click", toggleDemo);
+// Event listeners
+$("loginForm").addEventListener("submit", handleLogin);
+$("logoutButton").addEventListener("click", handleLogout);
+
+$("demoButton").addEventListener("click", () => {
+  if (currentUser) toggleDemo();
+});
 
 $("refreshButton").addEventListener("click", () => {
   if (demoMode) {
@@ -431,4 +567,28 @@ $("refreshButton").addEventListener("click", () => {
 
 window.addEventListener("beforeunload", stopListeners);
 
-connectFirebase();
+// Initialize Firebase and monitor authentication state.
+try {
+  const app = initializeApp(firebaseConfig);
+
+  auth = getAuth(app);
+  database = getDatabase(app);
+
+  onAuthStateChanged(
+    auth,
+    handleAuthState,
+    error => {
+      console.error("Authentication state error:", error);
+
+      showLoginError(
+        "Could not verify your login. Refresh the page and try again."
+      );
+    }
+  );
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
+
+  showLoginError(
+    "Firebase setup failed. Check the configuration in script.js."
+  );
+}

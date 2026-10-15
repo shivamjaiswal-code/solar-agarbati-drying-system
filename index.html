@@ -5,120 +5,249 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solar Agarbatti | IoT Dashboard</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand"><span class="brand-icon">SA</span>
-      <div><b>Solar Agarbatti</b><small>CHAMBER MONITOR</small></div>
-    </div>
-    <p class="nav-label">WORKSPACE</p>
-    <a class="nav-link active" href="#overview">▦ &nbsp; Overview</a>
-    <a class="nav-link" href="#charts">⌁ &nbsp; Sensor History</a>
-    <a class="nav-link" href="#history">◷ &nbsp; Data Log</a>
-    <a class="nav-link" href="#alerts">♧ &nbsp; Alerts</a>
-    <div class="device-box">
-      <span class="dot"></span>
-      <div><b>ESP32_AGARBATTI_01</b><small id="sideStatus">Waiting for data</small></div>
-    </div>
-  </aside>
 
-  <main class="main">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">MONITORING / OVERVIEW</p>
-        <h1>Drying Chamber Dashboard</h1>
-      </div>
-      <div class="header-actions">
-        <span id="connection" class="connection"><i class="dot"></i> Connecting...</span>
-        <button id="demoButton" class="button">Enable Demo</button>
-      </div>
-    </header>
-
-    <section id="overview" class="welcome">
-      <div>
-        <p class="eyebrow">LIVE SYSTEM STATUS</p>
-        <h2>Solar Agarbatti Drying Chamber</h2>
-        <p class="muted">Monitor sensors, hardware status and historical readings.</p>
-      </div>
-      <div class="update-box"><small>LAST DATA UPDATE</small><b id="lastUpdate">Waiting for ESP32...</b></div>
-    </section>
-
-    <div id="notice" class="notice">
-      Connecting to Firebase...
-    </div>
-
-    <section class="metrics">
-      <article class="metric orange">
-        <div class="metric-head">Temperature <span>♨</span></div>
-        <div class="metric-value"><strong id="temperature">—</strong><small>°C</small></div>
-        <p id="tempHint">Waiting for sensor</p>
-      </article>
-      <article class="metric blue">
-        <div class="metric-head">Humidity <span>◉</span></div>
-        <div class="metric-value"><strong id="humidity">—</strong><small>%</small></div>
-        <p>Relative humidity</p>
-      </article>
-      <article class="metric yellow">
-        <div class="metric-head">LDR / Light Sensor <span>☼</span></div>
-        <div class="metric-value text-value" id="ldr">—</div>
-        <p>Raw sensor reading</p>
-      </article>
-      <article class="metric green">
-        <div class="metric-head">Fan Status <span>✣</span></div>
-        <div class="metric-value text-value" id="fan">—</div>
-        <p>Automatic fan control</p>
-      </article>
-      <article class="metric yellow">
-        <div class="metric-head">Lamp Status <span>☼</span></div>
-        <div class="metric-value text-value" id="lamp">—</div>
-        <p>Relay output</p>
-      </article>
-      <article class="metric red">
-        <div class="metric-head">Buzzer / Alert <span>♬</span></div>
-        <div class="metric-value text-value" id="buzzer">—</div>
-        <p>Safety alert status</p>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article id="charts" class="panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">TRENDS</p><h3>Temperature & Humidity History</h3></div>
-          <span id="recordCount" class="tag">0 records</span>
+  <!-- Firebase Login -->
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="brand login-brand">
+        <span class="brand-icon">SA</span>
+        <div>
+          <b>Solar Agarbatti</b>
+          <small>CHAMBER MONITOR</small>
         </div>
-        <div class="chart-container"><canvas id="historyChart"></canvas></div>
-        <p class="muted note">Charts use saved historical readings. Demo readings are simulated.</p>
-      </article>
-
-      <article id="alerts" class="panel">
-        <div class="panel-heading"><div><p class="eyebrow">SYSTEM HEALTH</p><h3>Chamber Status</h3></div></div>
-        <div class="health-row"><span>Temperature</span><b id="tempHealth">Waiting</b></div>
-        <div class="health-row"><span>Sensor readings</span><b id="sensorHealth">Waiting</b></div>
-        <div class="health-row"><span>Firebase connection</span><b id="cloudHealth">Connecting</b></div>
-        <div id="alertBox" class="alert-box">Waiting for sensor readings.</div>
-      </article>
-    </section>
-
-    <section id="history" class="panel history-panel">
-      <div class="panel-heading">
-        <div><p class="eyebrow">SAVED READINGS</p><h3>Sensor Data Log</h3></div>
-        <button class="button" id="refreshButton">Refresh View</button>
       </div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Time</th><th>Temperature</th><th>Humidity</th><th>LDR</th><th>Fan</th><th>Lamp</th><th>Buzzer</th></tr></thead>
-          <tbody id="historyTable"><tr><td colspan="7" class="empty">Waiting for Firebase history...</td></tr></tbody>
-        </table>
-      </div>
-      <p class="muted note" id="recordSummary">0 records loaded</p>
-    </section>
 
-    <footer>Solar Agarbatti Chamber Monitor <span>ESP32 + Firebase · Read-only dashboard</span></footer>
-  </main>
+      <p class="eyebrow">SECURE ACCESS</p>
+      <h1>Welcome back</h1>
+      <p class="muted">Sign in to monitor your drying chamber.</p>
+
+      <form id="loginForm">
+        <label for="loginEmail">Email address</label>
+        <input
+          id="loginEmail"
+          type="email"
+          placeholder="Enter your registered email"
+          autocomplete="username"
+          required
+        >
+
+        <label for="loginPassword">Password</label>
+        <input
+          id="loginPassword"
+          type="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+          required
+        >
+
+        <button id="loginButton" class="button login-button" type="submit">
+          Sign In
+        </button>
+
+        <p id="loginError" class="login-error" role="alert"></p>
+      </form>
+
+      <p class="muted login-note">
+        Use the account created in Firebase Authentication.
+      </p>
+    </div>
+  </section>
+
+  <!-- Dashboard: shown only after authentication -->
+  <div id="appShell" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-icon">SA</span>
+        <div>
+          <b>Solar Agarbatti</b>
+          <small>CHAMBER MONITOR</small>
+        </div>
+      </div>
+
+      <p class="nav-label">WORKSPACE</p>
+      <a class="nav-link active" href="#overview">▦ &nbsp; Overview</a>
+      <a class="nav-link" href="#charts">⌁ &nbsp; Sensor History</a>
+      <a class="nav-link" href="#history">◷ &nbsp; Data Log</a>
+      <a class="nav-link" href="#alerts">♧ &nbsp; Alerts</a>
+
+      <div class="device-box">
+        <span class="dot"></span>
+        <div>
+          <b>ESP32_AGARBATTI_01</b>
+          <small id="sideStatus">Waiting for data</small>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MONITORING / OVERVIEW</p>
+          <h1>Drying Chamber Dashboard</h1>
+        </div>
+
+        <div class="header-actions">
+          <span id="connection" class="connection">
+            <i class="dot"></i> Connecting...
+          </span>
+          <button id="demoButton" class="button" type="button">
+            Enable Demo
+          </button>
+          <button id="logoutButton" class="button" type="button">
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      <section id="overview" class="welcome">
+        <div>
+          <p class="eyebrow">LIVE SYSTEM STATUS</p>
+          <h2>Solar Agarbatti Drying Chamber</h2>
+          <p class="muted">
+            Monitor sensors, hardware status and historical readings.
+          </p>
+        </div>
+        <div class="update-box">
+          <small>LAST DATA UPDATE</small>
+          <b id="lastUpdate">Waiting for ESP32...</b>
+        </div>
+      </section>
+
+      <div id="notice" class="notice">Connecting to Firebase...</div>
+
+      <section class="metrics">
+        <article class="metric orange">
+          <div class="metric-head">Temperature <span>♨</span></div>
+          <div class="metric-value">
+            <strong id="temperature">—</strong><small>°C</small>
+          </div>
+          <p id="tempHint">Waiting for sensor</p>
+        </article>
+
+        <article class="metric blue">
+          <div class="metric-head">Humidity <span>◉</span></div>
+          <div class="metric-value">
+            <strong id="humidity">—</strong><small>%</small>
+          </div>
+          <p>Relative humidity</p>
+        </article>
+
+        <article class="metric yellow">
+          <div class="metric-head">LDR / Light Sensor <span>☼</span></div>
+          <div class="metric-value text-value" id="ldr">—</div>
+          <p>Raw sensor reading</p>
+        </article>
+
+        <article class="metric green">
+          <div class="metric-head">Fan Status <span>✣</span></div>
+          <div class="metric-value text-value" id="fan">—</div>
+          <p>Automatic fan control</p>
+        </article>
+
+        <article class="metric yellow">
+          <div class="metric-head">Lamp Status <span>☼</span></div>
+          <div class="metric-value text-value" id="lamp">—</div>
+          <p>Relay output</p>
+        </article>
+
+        <article class="metric red">
+          <div class="metric-head">Buzzer / Alert <span>♬</span></div>
+          <div class="metric-value text-value" id="buzzer">—</div>
+          <p>Safety alert status</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article id="charts" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">TRENDS</p>
+              <h3>Temperature &amp; Humidity History</h3>
+            </div>
+            <span id="recordCount" class="tag">0 records</span>
+          </div>
+
+          <div class="chart-container">
+            <canvas id="historyChart"></canvas>
+          </div>
+          <p class="muted note">
+            Charts use saved historical readings. Demo readings are simulated.
+          </p>
+        </article>
+
+        <article id="alerts" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">SYSTEM HEALTH</p>
+              <h3>Chamber Status</h3>
+            </div>
+          </div>
+
+          <div class="health-row">
+            <span>Temperature</span><b id="tempHealth">Waiting</b>
+          </div>
+          <div class="health-row">
+            <span>Sensor readings</span><b id="sensorHealth">Waiting</b>
+          </div>
+          <div class="health-row">
+            <span>Firebase connection</span><b id="cloudHealth">Connecting</b>
+          </div>
+          <div id="alertBox" class="alert-box">
+            Waiting for sensor readings.
+          </div>
+        </article>
+      </section>
+
+      <section id="history" class="panel history-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">SAVED READINGS</p>
+            <h3>Sensor Data Log</h3>
+          </div>
+          <button class="button" id="refreshButton" type="button">
+            Refresh View
+          </button>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Temperature</th>
+                <th>Humidity</th>
+                <th>LDR</th>
+                <th>Fan</th>
+                <th>Lamp</th>
+                <th>Buzzer</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable">
+              <tr>
+                <td colspan="7" class="empty">
+                  Waiting for Firebase history...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="muted note" id="recordSummary">0 records loaded</p>
+      </section>
+
+      <footer>
+        Solar Agarbatti Chamber Monitor
+        <span>ESP32 + Firebase · Authenticated dashboard</span>
+      </footer>
+    </main>
+  </div>
 
   <script type="module" src="script.js"></script>
 </body>
